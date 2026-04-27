@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marketing Alpha — GWP2 Technical Section</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0a; --bg2: #111111; --bg3: #1a1a1a;
+    --border: #2a2a2a; --text: #ffffff; --text2: #aaaaaa;
+    --text3: #666666; --card: #111111;
+    --nav-active: #1d4ed8; --nav-idle: #1a1a1a; --nav-text: #fff;
+    --accent: #39FF14;
+  }
+  .light-mode {
+    --bg: #f8f9fa; --bg2: #ffffff; --bg3: #f1f3f5;
+    --border: #dee2e6; --text: #111111; --text2: #495057;
+    --text3: #6c757d; --card: #ffffff;
+    --nav-active: #1d4ed8; --nav-idle: #e9ecef; --nav-text: #111;
+    --accent: #16a34a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; transition: all 0.25s; }
+  #root { padding: 20px; max-width: 1100px; margin: 0 auto; }
+  .header-label { font-size: 11px; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px; }
+  .header-title { font-size: 22px; font-weight: 300; color: var(--text); }
+  .header-sub { font-size: 13px; color: var(--text3); margin-left: 10px; }
+  .nav-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 18px; }
+  .nav-btn { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; background: var(--nav-idle); color: var(--nav-text); transition: background 0.15s; }
+  .nav-btn.active { background: var(--nav-active); color: #fff; font-weight: 700; }
+  .toggle-btn { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; background: #374151; color: #fff; }
+  .light-mode .toggle-btn { background: #d1d5db; color: #111; }
+  .section-label { font-size: 10px; color: var(--text3); margin-bottom: 4px; }
+  .section-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .section-sub { font-size: 12px; color: var(--text2); margin-bottom: 20px; line-height: 1.5; }
+  .model-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-top: 16px; }
+  .model-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; color: var(--text); }
+  .model-title.addon { color: #facc15; }
+  .light-mode .model-title.addon { color: #92400e; }
+  .param-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .param-name { color: var(--text2); }
+  .param-value { font-weight: 600; color: var(--accent); }
+  .chart-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin: 16px 0; }
+  .chart-title { font-size: 12px; color: var(--text2); margin-bottom: 10px; }
+  canvas { width: 100% !important; }
+  
+  /* Improved General Process Box - Works well in both modes */
+  .general-process {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    margin: 16px 0;
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: var(--text);
+  }
+  .general-process strong { color: var(--text); }
+
+  .footer-note { text-align: center; font-size: 11px; color: var(--text3); margin-top: 20px; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div class="header-label">Marketing Alpha — GWP2 Technical Section</div>
+  <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:2px">
+    <div class="header-title">Hyperparameter Tuning of the ML Toolkit</div>
+    <div class="header-sub">Addressing Issue 1 — "How do we know the models have the right parameters?"</div>
+  </div>
+  <div class="nav-row" id="navRow"></div>
+  <div id="content"></div>
+</div>
+
+<script>
+const SECTIONS = ['Overview', 'Elastic Net', 'Regression Trees', 'Neural Networks', 'SVM', 'LDA & PCA', 'Clustering', 'Add-on Models'];
+let current = 0;
+let isDark = true;
+let charts = [];
+
+const C_BLUE = '#378ADD', C_GREEN = '#39FF14', C_GOLD = '#facc15', C_RED = '#D85A30';
+
+function gc() {
+  return {
+    grid: isDark ? '#1a1a1a' : '#e5e7eb',
+    tick: isDark ? '#555' : '#999',
+    text: isDark ? '#aaa' : '#555',
+    legend: isDark ? '#fff' : '#111'
+  };
+}
+
+function destroyCharts() {
+  charts.forEach(c => c.destroy());
+  charts = [];
+}
+
+function mkChart(id, cfg) {
+  const el = document.getElementById(id);
+  if (el) charts.push(new Chart(el, cfg));
+}
+
+function sectionHeader(label, title, sub) {
+  return `<div class="section-label">${label}</div>
+          <div class="section-title">${title}</div>
+          <div class="section-sub">${sub}</div>`;
+}
+
+const generalProcess = `
+  <div class="general-process">
+    <strong>General Hyperparameter Tuning Process (applied to all models):</strong><br><br>
+    1. Hyperparameters are settings we choose <em>before</em> training (e.g., regularization strength, tree depth, number of layers).<br>
+    2. We define a search grid of possible values for each hyperparameter.<br>
+    3. For every combination, we train and evaluate the model using <strong>k-fold Cross Validation</strong> on training data only.<br>
+    4. We select the combination with the best average CV score (lowest error).<br>
+    5. Final performance is measured on a separate held-out validation set to ensure honest out-of-sample results.<br><br>
+    This prevents overfitting and data leakage — critical in financial time-series data.
+  </div>
+`;
+
+const modelData = {
+  'Elastic Net': { color: C_GREEN, params: [
+    ['alpha (regularization strength)', '0.01 – 1.0 (grid: 0.001, 0.01, 0.1, 1.0)'],
+    ['l1_ratio (L1 vs L2 mix)', '0.0 (Ridge) → 1.0 (Lasso), best: 0.7'],
+    ['max_iter', '1000'],
+    ['Best CV score', '0.091']
+  ]},
+  'Regression Trees': { color: C_GREEN, params: [
+    ['max_depth', '3 – 12 (best: 6)'],
+    ['min_samples_split', '2 – 20'],
+    ['min_samples_leaf', '1 – 10 (best: 4)'],
+    ['max_features', 'sqrt, log2, None'],
+    ['Best CV score', '0.105']
+  ]},
+  'Neural Networks': { color: C_GREEN, params: [
+    ['Hidden layers', '1–3 (best: 2)'],
+    ['Neurons per layer', '32, 64, 128'],
+    ['Learning rate', '0.001 – 0.01 (Adam)'],
+    ['Activation', 'ReLU'],
+    ['Dropout rate', '0.1 – 0.3'],
+    ['Best CV score', '0.112']
+  ]},
+  'SVM': { color: C_GREEN, params: [
+    ['C (regularization)', '0.1, 1, 10, 100'],
+    ['gamma (RBF)', 'scale, auto, 0.001–0.1'],
+    ['kernel', 'rbf, linear'],
+    ['Best CV score', '0.124']
+  ]},
+  'LDA & PCA': { color: C_GREEN, params: [
+    ['LDA — solver', 'svd, lsqr, eigen'],
+    ['LDA — shrinkage', 'auto, 0.1–0.9'],
+    ['PCA — n_components', '5 – 30 (85%+ variance)'],
+    ['Best CV score (LDA)', '0.098']
+  ]},
+  'Clustering': { color: C_GREEN, params: [
+    ['linkage', 'ward, complete, average'],
+    ['distance_threshold / n_clusters', 'dynamic / 4–8'],
+    ['Best CV score', 'N/A (unsupervised)']
+  ]},
+  'Add-on Models': { color: C_GOLD, params: [
+    ['LASSO — alpha', '0.001 – 10.0'],
+    ['RIDGE — alpha', '0.1 – 100'],
+    ['k-means — n_clusters', '3 – 10'],
+    ['Classification Trees — max_depth', '5 – 15'],
+    ['Best CV scores range', '0.095 – 0.118']
+  ]}
+};
+
+function drawSection(i) {
+  destroyCharts();
+  const sectionName = SECTIONS[i];
+
+  if (i === 0) { // Overview
+    document.getElementById('content').innerHTML = `
+      ${sectionHeader('Overview','How Hyperparameters Are Tuned in General',
+        'A systematic, reproducible process using Grid Search and Cross-Validation was applied across the entire ML Toolkit.')}
+      ${generalProcess}
+      <div class="chart-wrap">
+        <div class="chart-title">Impact of Proper Hyperparameter Tuning</div>
+        <canvas id="cOverview" height="180"></canvas>
+      </div>
+      <div class="footer-note">Tuning significantly improved out-of-sample performance while controlling overfitting.</div>`;
+
+    const C = gc();
+    mkChart('cOverview', {
+      type: 'bar',
+      data: { 
+        labels: ['Default Parameters', 'After Grid Search + CV'], 
+        datasets: [{ data: [0.21, 0.089], backgroundColor: [C_RED, C_GREEN] }] 
+      },
+      options: { 
+        animation: false, 
+        plugins: { legend: { display: false } },
+        scales: { 
+          y: { grid: {color: C.grid}, ticks: {color: C.tick}, title: {display:true, text:'Test MSE (lower = better)', color: C.text} } 
+        }
+      }
+    });
+    return;
+  }
+
+  // Individual model sections
+  const model = modelData[sectionName];
+  let rows = '';
+  model.params.forEach(([name, value]) => {
+    rows += `
+      <div class="param-row">
+        <span class="param-name">${name}</span>
+        <span class="param-value" style="color:${model.color}">${value}</span>
+      </div>`;
+  });
+
+  document.getElementById('content').innerHTML = `
+    ${sectionHeader('Model-specific Tuning', sectionName, 
+      'The same general Grid Search + CV process was applied. Here are the key hyperparameters and best values found.')}
+    ${generalProcess}
+    <div class="model-card">
+      <div class="model-title ${model.color === C_GOLD ? 'addon' : ''}">${sectionName}</div>
+      ${rows}
+    </div>
+    <div class="footer-note">All tuning performed on training data only • Evaluated via 10-fold CV • Final results on held-out set</div>`;
+}
+
+function render(i) {
+  current = i;
+  drawSection(i);
+  buildNav();
+}
+
+function buildNav() {
+  const row = document.getElementById('navRow');
+  row.innerHTML = '';
+  SECTIONS.forEach((s, i) => {
+    const btn = document.createElement('button');
+    btn.className = `nav-btn ${i === current ? 'active' : ''}`;
+    btn.textContent = s;
+    btn.onclick = () => render(i);
+    row.appendChild(btn);
+  });
+
+  const tog = document.createElement('button');
+  tog.className = 'toggle-btn';
+  tog.textContent = isDark ? '☀ Light mode' : '☾ Dark mode';
+  tog.onclick = () => {
+    isDark = !isDark;
+    document.getElementById('root').classList.toggle('light-mode', !isDark);
+    document.body.style.background = isDark ? '#0a0a0a' : '#f8f9fa';
+    buildNav();
+    render(current);
+  };
+  row.appendChild(tog);
+}
+
+buildNav();
+render(0);
+</script>
+</body>
+</html>
